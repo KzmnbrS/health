@@ -1,2 +1,2 @@
 # health
-A short list of primitive methods to help you implement graceful shutdown with ease. See `examples` for more.
+A series of primitive methods to assist you with graceful shutdown implementation. See `examples` for more.
