@@ -37,7 +37,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), downDelay+time.Second*3)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(downDelay).Add(time.Second*3))
 	health.WaitDown(ctx)
 	cancel()
 }
