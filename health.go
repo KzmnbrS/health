@@ -10,12 +10,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 )
 
 var (
-	downFns []func()
-	isDown  int32
-	mtx     sync.Mutex
+	downDelay int64
+	downFns   []func()
+	isDown    int32
+	mtx       sync.Mutex
 
 	sigint chan os.Signal
 	wg     sync.WaitGroup
@@ -27,6 +29,10 @@ func init() {
 	go func() {
 		<-sigint
 		atomic.StoreInt32(&isDown, 1)
+
+		if atomic.LoadInt64(&downDelay) > 0 {
+			time.Sleep(time.Duration(downDelay))
+		}
 
 		wg.Add(len(downFns))
 		for _, fn := range downFns {
@@ -45,6 +51,13 @@ func Stop() {
 // Check returns true if the process wasn't interrupted by a signal.
 func Check() bool {
 	return atomic.LoadInt32(&isDown) == 0
+}
+
+// SetDownDelay sets a delay between a health check failure and down
+// functions execution start. This might be useful to give your load
+// balancer some time to react.
+func SetDownDelay(v time.Duration) {
+	atomic.StoreInt64(&downDelay, int64(v))
 }
 
 // AddDownFn adds a function to run after an interrupt signal.

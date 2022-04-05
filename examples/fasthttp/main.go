@@ -21,6 +21,7 @@ func main() {
 		IdleTimeout: time.Second,
 	}
 
+	health.SetDownDelay(time.Second * 5)
 	health.AddDownFn(func() {
 		fmt.Println("sigint")
 	})
