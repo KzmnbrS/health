@@ -21,7 +21,8 @@ func main() {
 		IdleTimeout: time.Second,
 	}
 
-	health.SetDownDelay(time.Second * 5)
+	downDelay := time.Second * 5
+	health.SetDownDelay(downDelay)
 	health.AddDownFn(func() {
 		fmt.Println("sigint")
 	})
@@ -36,7 +37,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithDeadline(
+		context.Background(),
+		time.Now().Add(downDelay).Add(time.Second*3),
+	)
 	health.WaitDown(ctx)
 	cancel()
 }
