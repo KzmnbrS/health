@@ -41,17 +41,10 @@ func init() {
 			}
 
 			wg.Add(1)
-			switch syncMap[i] {
-			case true:
+			go func(fn func()) {
 				fn()
 				wg.Done()
-
-			case false:
-				go func() {
-					fn()
-					wg.Done()
-				}()
-			}
+			}(fn)
 		}
 	}()
 }
