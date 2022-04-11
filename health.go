@@ -14,9 +14,10 @@ import (
 )
 
 var (
+	isDown    int32
 	downDelay int64
 	downFns   []func()
-	isDown    int32
+	syncMap   []bool
 	mtx       sync.Mutex
 
 	sigint chan os.Signal
@@ -34,10 +35,23 @@ func init() {
 			time.Sleep(time.Duration(downDelay))
 		}
 
-		wg.Add(len(downFns))
-		for _, fn := range downFns {
-			fn()
-			wg.Done()
+		for i, fn := range downFns {
+			if syncMap[i] {
+				wg.Wait()
+			}
+
+			wg.Add(1)
+			switch syncMap[i] {
+			case true:
+				fn()
+				wg.Done()
+
+			case false:
+				go func() {
+					fn()
+					wg.Done()
+				}()
+			}
 		}
 	}()
 }
@@ -60,14 +74,24 @@ func SetDownDelay(v time.Duration) {
 	atomic.StoreInt64(&downDelay, int64(v))
 }
 
-// AddDownFn adds a function to run after an interrupt signal.
+// AddDownFn adds a sync func to run after an interrupt signal.
 func AddDownFn(fn func()) {
+	addDownFn(fn, true)
+}
+
+// AddAsyncDownFn adds an async func to run after an interrupt signal.
+func AddAsyncDownFn(fn func()) {
+	addDownFn(fn, false)
+}
+
+func addDownFn(fn func(), isSync bool) {
 	if !Check() {
 		return
 	}
 
 	mtx.Lock()
 	downFns = append(downFns, fn)
+	syncMap = append(syncMap, isSync)
 	mtx.Unlock()
 }
 
