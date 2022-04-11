@@ -14,14 +14,13 @@ import (
 )
 
 var (
-	isDown    int32
-	downDelay int64
-	downFns   []func()
-	syncMap   []bool
-	mtx       sync.Mutex
+	isDown     int32
+	downDelay  int64
+	downGroups [][]func()
+	mtx        sync.Mutex
 
-	sigint chan os.Signal
-	wg     sync.WaitGroup
+	sigint  chan os.Signal
+	groupWg sync.WaitGroup
 )
 
 func init() {
@@ -35,16 +34,16 @@ func init() {
 			time.Sleep(time.Duration(downDelay))
 		}
 
-		for i, fn := range downFns {
-			if syncMap[i] {
-				wg.Wait()
+		for _, group := range downGroups {
+			wg := sync.WaitGroup{}
+			wg.Add(len(group))
+			for _, fn := range group {
+				go func(fn func()) {
+					fn()
+					wg.Done()
+				}(fn)
 			}
-
-			wg.Add(1)
-			go func(fn func()) {
-				fn()
-				wg.Done()
-			}(fn)
+			wg.Wait()
 		}
 	}()
 }
@@ -74,16 +73,23 @@ func AddDownFn(fn func(), isSync bool) {
 	}
 
 	mtx.Lock()
-	downFns = append(downFns, fn)
-	syncMap = append(syncMap, isSync)
-	mtx.Unlock()
+	defer mtx.Unlock()
+
+	if isSync || len(downGroups) == 0 {
+		groupWg.Add(1)
+		downGroups = append(downGroups, []func(){fn})
+		return
+	}
+
+	n := len(downGroups)
+	downGroups[n-1] = append(downGroups[n-1], fn)
 }
 
 // WaitDown blocks until either down function list or the context is done.
 func WaitDown(ctx context.Context) {
 	downFnsDone := make(chan struct{})
 	go func() {
-		wg.Wait()
+		groupWg.Wait()
 		downFnsDone <- struct{}{}
 	}()
 
