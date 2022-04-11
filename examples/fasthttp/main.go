@@ -25,12 +25,12 @@ func main() {
 	health.SetDownDelay(downDelay)
 	health.AddDownFn(func() {
 		fmt.Println("sigint")
-	})
+	}, true)
 	health.AddDownFn(func() {
 		if err := srv.Shutdown(); err != nil {
 			log.Println(err)
 		}
-	})
+	}, true)
 
 	// Immediately returns nil on srv.Shutdown.
 	if err := srv.ListenAndServe(":8080"); err != nil {

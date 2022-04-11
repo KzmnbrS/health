@@ -67,17 +67,9 @@ func SetDownDelay(v time.Duration) {
 	atomic.StoreInt64(&downDelay, int64(v))
 }
 
-// AddDownFn adds a sync func to run after an interrupt signal.
-func AddDownFn(fn func()) {
-	addDownFn(fn, true)
-}
-
-// AddAsyncDownFn adds an async func to run after an interrupt signal.
-func AddAsyncDownFn(fn func()) {
-	addDownFn(fn, false)
-}
-
-func addDownFn(fn func(), isSync bool) {
+// AddDownFn adds a function to run after the process is interrupted by signal.
+// isSync flag will join all async functions running before the given one.
+func AddDownFn(fn func(), isSync bool) {
 	if !Check() {
 		return
 	}
