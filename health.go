@@ -14,9 +14,10 @@ import (
 )
 
 var (
+	isDown    int32
 	downDelay int64
 	downFns   []func()
-	isDown    int32
+	syncMap   []bool
 	mtx       sync.Mutex
 
 	sigint chan os.Signal
@@ -34,10 +35,16 @@ func init() {
 			time.Sleep(time.Duration(downDelay))
 		}
 
-		wg.Add(len(downFns))
-		for _, fn := range downFns {
-			fn()
-			wg.Done()
+		for i, fn := range downFns {
+			if syncMap[i] {
+				wg.Wait()
+			}
+
+			wg.Add(1)
+			go func(fn func()) {
+				fn()
+				wg.Done()
+			}(fn)
 		}
 	}()
 }
@@ -53,21 +60,22 @@ func Check() bool {
 	return atomic.LoadInt32(&isDown) == 0
 }
 
-// SetDownDelay sets a delay between a health check failure and down
-// functions execution start. This might be useful to give your load
-// balancer some time to react.
+// SetDownDelay sets a delay between a health check failure and down functions start.
+// This is useful to give your load balancer of choice some time to react.
 func SetDownDelay(v time.Duration) {
 	atomic.StoreInt64(&downDelay, int64(v))
 }
 
-// AddDownFn adds a function to run after an interrupt signal.
-func AddDownFn(fn func()) {
+// AddDownFn adds a function to run after an interrupt signal plus down delay.
+// isSync will join all down functions running before executing the given one.
+func AddDownFn(fn func(), isSync bool) {
 	if !Check() {
 		return
 	}
 
 	mtx.Lock()
 	downFns = append(downFns, fn)
+	syncMap = append(syncMap, isSync)
 	mtx.Unlock()
 }
 
