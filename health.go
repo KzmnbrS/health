@@ -14,9 +14,9 @@ import (
 )
 
 var (
+	isDown    int32
 	downDelay int64
 	downFns   []func()
-	isDown    int32
 	mtx       sync.Mutex
 
 	sigint chan os.Signal
@@ -55,7 +55,7 @@ func Check() bool {
 
 // SetDownDelay sets a delay between a health check failure and down
 // functions execution start. This might be useful to give your load
-// balancer some time to react.
+// balancer of choice some time to react.
 func SetDownDelay(v time.Duration) {
 	atomic.StoreInt64(&downDelay, int64(v))
 }
