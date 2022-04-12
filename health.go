@@ -34,7 +34,6 @@ func init() {
 			time.Sleep(time.Duration(downDelay))
 		}
 
-		wg.Add(len(downFns))
 		for _, fn := range downFns {
 			fn()
 			wg.Done()
@@ -65,6 +64,8 @@ func AddDownFn(fn func()) {
 	if !Check() {
 		return
 	}
+
+	wg.Add(1)
 
 	mtx.Lock()
 	downFns = append(downFns, fn)
