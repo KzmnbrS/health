@@ -1,3 +1,3 @@
-module github.com/KzmnbrS/health
+module github.com/kzmnbrs/health
 
 go 1.16
