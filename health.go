@@ -26,19 +26,6 @@ var (
 func init() {
 	sigint = make(chan os.Signal)
 	signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigint
-		atomic.StoreInt32(&isDown, 1)
-
-		if atomic.LoadInt64(&downDelay) > 0 {
-			time.Sleep(time.Duration(downDelay))
-		}
-
-		for _, fn := range downFns {
-			fn()
-			wg.Done()
-		}
-	}()
 }
 
 // Stop emulates syscall.SIGINT.
@@ -74,6 +61,20 @@ func AddDownFn(fn func()) {
 
 // WaitDown blocks until either down function list or the context is done.
 func WaitDown(ctx context.Context) {
+	<-sigint
+	atomic.StoreInt32(&isDown, 1)
+
+	if atomic.LoadInt64(&downDelay) > 0 {
+		time.Sleep(time.Duration(downDelay))
+	}
+
+	go func() {
+		for _, fn := range downFns {
+			fn()
+			wg.Done()
+		}
+	}()
+
 	downFnsDone := make(chan struct{})
 	go func() {
 		wg.Wait()
