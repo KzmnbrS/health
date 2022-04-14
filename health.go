@@ -4,7 +4,6 @@
 package health
 
 import (
-	"context"
 	"os"
 	"os/signal"
 	"sync"
@@ -59,8 +58,8 @@ func AddDownFn(fn func()) {
 	mtx.Unlock()
 }
 
-// WaitDown blocks until either down function list or the context is done.
-func WaitDown(ctx context.Context) {
+// WaitDown blocks until either down function list is done or the time ran out.
+func WaitDown(timeout time.Duration) {
 	<-sigint
 	atomic.StoreInt32(&isDown, 1)
 
@@ -81,8 +80,13 @@ func WaitDown(ctx context.Context) {
 		downFnsDone <- struct{}{}
 	}()
 
+	var timeoutC <-chan time.Time
+	if timeout > 0 {
+		timeoutC = time.After(timeout)
+	}
+
 	select {
 	case <-downFnsDone:
-	case <-ctx.Done():
+	case <-timeoutC:
 	}
 }
