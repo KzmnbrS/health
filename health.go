@@ -22,7 +22,7 @@ var (
 	mtx     sync.Mutex
 )
 
-// SetUp sets health status to StatusUp and starts healths checks.
+// SetUp sets health status to StatusUp and starts health checks.
 func SetUp(newOpState interface{}) {
 	if !atomic.CompareAndSwapInt32(&status, StatusInit, StatusUp) {
 		return
