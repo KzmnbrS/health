@@ -4,89 +4,41 @@
 package health
 
 import (
-	"os"
-	"os/signal"
 	"sync"
 	"sync/atomic"
-	"syscall"
-	"time"
+)
+
+type Status = int32
+
+const (
+	StatusInit Status = iota
+	StatusUp
+	StatusDown
 )
 
 var (
-	isDown    int32
-	downDelay int64
-	downFns   []func()
-	mtx       sync.Mutex
-
-	sigint chan os.Signal
-	wg     sync.WaitGroup
+	status  int32
+	opState interface{}
+	mtx     sync.Mutex
 )
 
-func init() {
-	sigint = make(chan os.Signal)
-	signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
-}
-
-// Stop emulates syscall.SIGINT.
-func Stop() {
-	signal.Stop(sigint)
-	sigint <- syscall.SIGINT
-}
-
-// Check returns true if the process wasn't interrupted by a signal.
-func Check() bool {
-	return atomic.LoadInt32(&isDown) == 0
-}
-
-// SetDownDelay sets a delay between a health check failure and down
-// functions execution start. This might be useful to give your load
-// balancer of choice some time to react.
-func SetDownDelay(v time.Duration) {
-	atomic.StoreInt64(&downDelay, int64(v))
-}
-
-// AddDownFn adds a function to run after an interrupt signal.
-func AddDownFn(fn func()) {
-	if !Check() {
+// SetUp sets health status to StatusUp and starts healths checks.
+func SetUp(newOpState interface{}) {
+	if !atomic.CompareAndSwapInt32(&status, StatusInit, StatusUp) {
 		return
 	}
 
-	wg.Add(1)
-
-	mtx.Lock()
-	downFns = append(downFns, fn)
-	mtx.Unlock()
+	opState = newOpState
+	startChecks()
 }
 
-// WaitDown blocks until either down function list is done or the time ran out.
-func WaitDown(timeout time.Duration) {
-	<-sigint
-	atomic.StoreInt32(&isDown, 1)
+// GetStatus returns health status.
+func GetStatus() Status {
+	return atomic.LoadInt32(&status)
+}
 
-	if atomic.LoadInt64(&downDelay) > 0 {
-		time.Sleep(time.Duration(downDelay))
-	}
-
-	go func() {
-		for _, fn := range downFns {
-			fn()
-			wg.Done()
-		}
-	}()
-
-	downFnsDone := make(chan struct{})
-	go func() {
-		wg.Wait()
-		downFnsDone <- struct{}{}
-	}()
-
-	var timeoutC <-chan time.Time
-	if timeout > 0 {
-		timeoutC = time.After(timeout)
-	}
-
-	select {
-	case <-downFnsDone:
-	case <-timeoutC:
-	}
+// GetOpState returns application's operational state.
+// Operational state is only meant to exist on StatusUp.
+func GetOpState() interface{} {
+	return opState
 }
