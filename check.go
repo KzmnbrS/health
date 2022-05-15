@@ -2,31 +2,30 @@ package health
 
 import "time"
 
-type check struct {
-	fn       func(opState interface{})
-	interval time.Duration
+type Check interface {
+	Do(v interface{})
+	Interval() time.Duration
 }
 
-var checks []check
+var checks []Check
 
-// AddCheck adds the new check to run at the given interval.
-// Check func will receive operational state pointer.
-func AddCheck(fn func(opState interface{}), interval time.Duration) {
+// AddCheck adds the new check to run. Check func will receive operational state pointer.
+func AddCheck(ch Check) {
 	mtx.Lock()
-	checks = append(checks, check{fn, interval})
+	checks = append(checks, ch)
 	mtx.Unlock()
 }
 
 func startChecks() {
 	for _, ch := range checks {
-		go func(ch check) {
+		go func(ch Check) {
 			for {
 				if GetStatus() != StatusUp {
 					return
 				}
 
-				ch.fn(opState)
-				<-time.After(ch.interval)
+				ch.Do(opState)
+				<-time.After(ch.Interval())
 			}
 		}(ch)
 	}
