@@ -1,5 +1,5 @@
-// This package provides a series of primitive methods to
-// assist you with graceful shutdown implementation.
+// This package provides a series of primitive methods to assist you
+// with graceful shutdown and health checks implementation.
 
 package health
 
